@@ -1,0 +1,171 @@
+{
+  "uid": "nginx_performance_001",
+  "title": "Performance Nginx",
+  "tags": ["nginx", "performance", "webserver"],
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "10s",
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+
+  "templating": {
+    "list": [
+      {
+        "name": "instance_nginx",
+        "type": "query",
+        "datasource": "Prometheus",
+        "label": "Instance Nginx",
+        "query": "label_values(nginx_connections_active{job=\"nginx\"}, instance)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+
+  "panels": [
+    {
+      "type": "row",
+      "title": "Connexions Nginx",
+      "id": 200,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+
+    {
+      "type": "stat",
+      "title": "Connexions Actives",
+      "id": 21,
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 7 },
+      "targets": [
+        {
+          "expr": "nginx_connections_active{job=\"nginx\",instance=~\"$instance_nginx\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "conn",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area" }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Taux de Connexions (Acceptées / Traitées)",
+      "id": 22,
+      "datasource": "Prometheus",
+      "gridPos": { "x": 6, "y": 1, "w": 9, "h": 7 },
+      "targets": [
+        {
+          "expr": "rate(nginx_connections_accepted_total{job=\"nginx\",instance=~\"$instance_nginx\"}[1m])",
+          "legendFormat": "Acceptées/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(nginx_connections_handled_total{job=\"nginx\",instance=~\"$instance_nginx\"}[1m])",
+          "legendFormat": "Traitées/s",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "conn/s" },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "États des Connexions Actives",
+      "id": 23,
+      "datasource": "Prometheus",
+      "gridPos": { "x": 15, "y": 1, "w": 9, "h": 7 },
+      "targets": [
+        {
+          "expr": "nginx_connections_reading{job=\"nginx\",instance=~\"$instance_nginx\"}",
+          "legendFormat": "Reading",
+          "refId": "A"
+        },
+        {
+          "expr": "nginx_connections_writing{job=\"nginx\",instance=~\"$instance_nginx\"}",
+          "legendFormat": "Writing",
+          "refId": "B"
+        },
+        {
+          "expr": "nginx_connections_waiting{job=\"nginx\",instance=~\"$instance_nginx\"}",
+          "legendFormat": "Waiting",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "conn" }, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right" },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+
+    {
+      "type": "row",
+      "title": "Requêtes HTTP Nginx",
+      "id": 201,
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 1 }
+    },
+
+    {
+      "type": "stat",
+      "title": "Taux de Requêtes HTTP (Total)",
+      "id": 24,
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(nginx_http_requests_total{job=\"nginx\",instance=~\"$instance_nginx\"}[1m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "req/s",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area" }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Taux de Requêtes par Code de Statut",
+      "id": 25,
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 9, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(nginx_http_requests_total{job=\"nginx\",instance=~\"$instance_nginx\"}[1m])) by (code)",
+          "legendFormat": "Code {{code}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "req/s" }, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right" },
+        "tooltip": { "mode": "multi" }
+      }
+    }
+  ]
+}

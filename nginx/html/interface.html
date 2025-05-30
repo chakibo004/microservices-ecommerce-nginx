@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interface des Services E-Commerce - Affichage Amélioré</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <style>
+      :root {
+        --primary-color: #007bff;
+        --primary-hover-color: #0056b3;
+        --secondary-color: #6c757d;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --info-color: #17a2b8;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+        --body-bg: #e9ecef;
+        --card-bg: #ffffff;
+        --text-color: #212529;
+        --muted-color: #6c757d;
+        --border-color: #dee2e6;
+        --border-radius: 0.375rem;
+        --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+
+      body {
+        font-family: var(--font-family);
+        margin: 0;
+        padding: 20px;
+        background-color: var(--body-bg);
+        color: var(--text-color);
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: auto;
+        background-color: var(--card-bg);
+        padding: 30px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+      }
+
+      h1 {
+        color: var(--dark-color);
+        text-align: center;
+        margin-bottom: 30px;
+        font-weight: 500;
+      }
+
+      h2 {
+        color: var(--primary-color);
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 10px;
+        margin-top: 0;
+        margin-bottom: 20px;
+        font-weight: 500;
+      }
+
+      h3,
+      h4 {
+        color: var(--dark-color);
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-weight: 500;
+      }
+      h4 {
+        font-size: 1.1em;
+        color: var(--muted-color);
+      }
+
+      .service-section {
+        margin-bottom: 40px;
+        padding: 25px;
+        background-color: var(--light-color);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: var(--muted-color);
+      }
+
+      input[type="text"],
+      input[type="number"],
+      select {
+        width: calc(100% - 22px); /* Compenser le padding et la bordure */
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      }
+      input[type="text"]:focus,
+      input[type="number"]:focus,
+      select:focus {
+        border-color: var(--primary-color);
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+      }
+
+      .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      button {
+        padding: 10px 20px;
+        font-size: 0.95rem;
+        border: none;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      button:hover {
+        transform: translateY(-1px);
+      }
+      button:active {
+        transform: translateY(0px);
+      }
+
+      .btn-primary {
+        background-color: var(--primary-color);
+      }
+      .btn-primary:hover {
+        background-color: var(--primary-hover-color);
+      }
+      .btn-info {
+        background-color: var(--info-color);
+      }
+      .btn-info:hover {
+        background-color: #138496;
+      }
+      .btn-success {
+        background-color: var(--success-color);
+      }
+      .btn-success:hover {
+        background-color: #1e7e34;
+      }
+      .btn-warning {
+        background-color: var(--warning-color);
+        color: var(--dark-color);
+      }
+      .btn-warning:hover {
+        background-color: #e0a800;
+      }
+      .btn-danger {
+        background-color: var(--danger-color);
+      }
+      .btn-danger:hover {
+        background-color: #bd2130;
+      }
+      .btn-secondary {
+        background-color: var(--secondary-color);
+      }
+      .btn-secondary:hover {
+        background-color: #545b62;
+      }
+
+      /* Styles pour la sortie formatée */
+      .formatted-output-area {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+      }
+
+      .data-card-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      .data-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        width: calc(33.333% - 10px); /* Trois cartes par ligne, moins le gap */
+        box-sizing: border-box;
+        word-wrap: break-word;
+      }
+      @media (max-width: 992px) {
+        .data-card {
+          width: calc(50% - 8px); /* Deux cartes par ligne */
+        }
+      }
+      @media (max-width: 768px) {
+        .data-card {
+          width: 100%; /* Une carte par ligne */
+        }
+      }
+
+      .data-card h5 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        color: var(--primary-color);
+        font-size: 1.1em;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 5px;
+      }
+      .data-card h5 i {
+        margin-right: 8px;
+      }
+
+      .data-item {
+        margin-bottom: 8px;
+        font-size: 0.9em;
+      }
+      .data-item strong {
+        color: var(--dark-color);
+        min-width: 100px;
+        display: inline-block;
+      }
+      .data-item span {
+        color: var(--muted-color);
+      }
+      .data-item pre {
+        /* Pour les valeurs JSON imbriquées */
+        font-size: 0.85em;
+        margin-top: 5px;
+        padding: 8px;
+      }
+
+      pre.raw-json-output {
+        /* Style pour la sortie JSON brute si nécessaire */
+        background-color: var(--dark-color);
+        color: var(--light-color);
+        padding: 15px;
+        border-radius: var(--border-radius);
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+          Courier, monospace;
+        font-size: 0.875em;
+        border: 1px solid #495057;
+        margin-top: 5px;
+      }
+
+      .output-container {
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px dashed var(--border-color);
+      }
+      .output-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .output-header h3 {
+        margin: 0;
+        font-size: 1.2em;
+      }
+
+      .status-badge {
+        padding: 0.3em 0.6em;
+        font-size: 0.8em;
+        border-radius: var(--border-radius);
+        color: white;
+        margin-left: 10px;
+      }
+      .status-success {
+        background-color: var(--success-color);
+      }
+      .status-error {
+        background-color: var(--danger-color);
+      }
+      .status-info {
+        background-color: var(--info-color);
+      }
+      .status-warning {
+        background-color: var(--warning-color);
+        color: var(--dark-color);
+      }
+
+      .request-info {
+        background-color: #f0f0f0;
+        padding: 10px;
+        border-radius: var(--border-radius);
+        margin-bottom: 10px;
+        border: 1px solid var(--border-color);
+      }
+      .request-info strong {
+        color: var(--primary-color);
+      }
+      .request-info code {
+        font-family: monospace;
+        font-size: 0.9em;
+        color: var(--muted-color);
+        word-break: break-all;
+        display: block;
+        background-color: #e9ecef;
+        padding: 5px;
+        border-radius: 3px;
+        margin-top: 5px;
+      }
+
+      .loader {
+        display: none; /* Caché par défaut */
+        font-size: 1.2em;
+        color: var(--primary-color);
+        margin: 10px 0;
+      }
+      .loader.active {
+        display: block;
+      }
+      .loader i {
+        margin-right: 8px;
+      }
+
+      /* Ajustements responsives */
+      @media (max-width: 768px) {
+        .button-group {
+          flex-direction: column;
+        }
+        input[type="text"],
+        input[type="number"],
+        select,
+        button {
+          width: 100%;
+          box-sizing: border-box; /* Inclure padding et bordure dans la largeur/hauteur totale */
+        }
+        .form-group {
+          display: flex;
+          flex-direction: column;
+        }
+        .form-group input,
+        .form-group select {
+          width: calc(
+            100% - 22px
+          ); /* Recalculer pour pleine largeur dans le groupe de formulaire */
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1><i class="fas fa-cogs"></i> Interface des Services E-Commerce</h1>
+
+      <div class="service-section">
+        <h2>
+          <i class="fas fa-shopping-cart"></i> Service des Commandes
+          (/api/orders/)
+        </h2>
+        <div class="button-group">
+          <button
+            class="btn-info"
+            onclick="handleRequest('GET', '/api/orders/', null, 'ordersOutput')"
+          >
+            <i class="fas fa-list"></i> Obtenir Toutes les Commandes
+          </button>
+        </div>
+        <div class="form-group">
+          <label for="orderId">ID de Commande :</label>
+          <input type="number" id="orderId" placeholder="ex: 1" />
+        </div>
+        <div class="button-group">
+          <button
+            class="btn-info"
+            onclick="handleRequest('GET', `/api/orders/${document.getElementById('orderId').value}`, null, 'ordersOutput')"
+          >
+            <i class="fas fa-search"></i> Obtenir Commande par ID
+          </button>
+          <button
+            class="btn-danger"
+            onclick="handleRequest('DELETE', `/api/orders/${document.getElementById('orderId').value}`, null, 'ordersOutput')"
+          >
+            <i class="fas fa-trash-alt"></i> Supprimer Commande par ID
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label for="orderItem">Article (SKU) :</label>
+          <input type="text" id="orderItem" placeholder="ex: SKU-123" />
+        </div>
+        <div class="form-group">
+          <label for="orderQty">Quantité :</label>
+          <input type="number" id="orderQty" placeholder="ex: 1" />
+        </div>
+        <div class="button-group">
+          <button
+            class="btn-success"
+            onclick="handleRequest('POST', '/api/orders/', { item: document.getElementById('orderItem').value, qty: parseInt(document.getElementById('orderQty').value) || 0 }, 'ordersOutput')"
+          >
+            <i class="fas fa-plus-circle"></i> Créer Commande
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label for="orderUpdateId"
+            >ID Commande à Mettre à Jour (Statut) :</label
+          >
+          <input type="number" id="orderUpdateId" placeholder="ex: 1" />
+        </div>
+        <div class="form-group">
+          <label for="orderNewStatus">Nouveau Statut :</label>
+          <select id="orderNewStatus">
+            <option value="NEW">NEW</option>
+            <option value="PROCESSING">PROCESSING</option>
+            <option value="SHIPPED">SHIPPED</option>
+            <option value="DELIVERED">DELIVERED</option>
+            <option value="CANCELLED">CANCELLED</option>
+          </select>
+        </div>
+        <div class="button-group">
+          <button
+            class="btn-warning"
+            onclick="handleRequest('PUT', `/api/orders/${document.getElementById('orderUpdateId').value}/status`, { status: document.getElementById('orderNewStatus').value }, 'ordersOutput')"
+          >
+            <i class="fas fa-edit"></i> Mettre à Jour Statut Commande
+          </button>
+        </div>
+        <div class="output-container">
+          <div class="output-header">
+            <h3><i class="fas fa-laptop-code"></i> Détails de l'Opération :</h3>
+            <button
+              class="btn-secondary btn-sm"
+              onclick="clearOutput('ordersOutput')"
+            >
+              <i class="fas fa-eraser"></i> Effacer
+            </button>
+          </div>
+          <div class="loader" id="ordersOutputLoader">
+            <i class="fas fa-spinner fa-spin"></i>Chargement...
+          </div>
+          <div class="request-info" id="ordersOutputRequestInfo"></div>
+          <h4>Réponse du Serveur :</h4>
+          <div class="formatted-output-area" id="ordersOutput"></div>
+        </div>
+      </div>
+
+      <div class="service-section">
+        <h2>
+          <i class="fas fa-lightbulb"></i> Service de Recommandation
+          (/api/reco/)
+        </h2>
+        <div class="button-group">
+          <button
+            class="btn-info"
+            onclick="handleRequest('GET', '/api/reco/', null, 'recoOutput')"
+          >
+            <i class="fas fa-list"></i> Obtenir Toutes les Recos (Aperçu)
+          </button>
+        </div>
+        <div class="form-group">
+          <label for="recoUserId">ID Utilisateur :</label>
+          <input type="text" id="recoUserId" placeholder="ex: 1 ou user_abc" />
+        </div>
+        <div class="button-group">
+          <button
+            class="btn-info"
+            onclick="handleRequest('GET', `/api/reco/${document.getElementById('recoUserId').value}`, null, 'recoOutput')"
+          >
+            <i class="fas fa-user-check"></i> Obtenir Reco par ID Utilisateur
+          </button>
+        </div>
+        <div class="form-group">
+          <label for="recoUpdateUserId">ID Utilisateur à Mettre à Jour :</label>
+          <input
+            type="text"
+            id="recoUpdateUserId"
+            placeholder="ex: 2 ou user_xyz"
+          />
+        </div>
+        <div class="form-group">
+          <label for="recoUpdateSkus"
+            >SKUs Recommandés (séparés par virgule) :</label
+          >
+          <input
+            type="text"
+            id="recoUpdateSkus"
+            placeholder="ex: SKU-01,SKU-02,SKU-99"
+          />
+        </div>
+        <div class="button-group">
+          <button
+            class="btn-warning"
+            onclick="handleRequest('PUT', `/api/reco/${document.getElementById('recoUpdateUserId').value}`, { reco: document.getElementById('recoUpdateSkus').value.split(',').map(s => s.trim()).filter(s => s) }, 'recoOutput')"
+          >
+            <i class="fas fa-edit"></i> Mettre à Jour Reco Utilisateur
+          </button>
+        </div>
+        <div class="output-container">
+          <div class="output-header">
+            <h3><i class="fas fa-laptop-code"></i> Détails de l'Opération :</h3>
+            <button
+              class="btn-secondary btn-sm"
+              onclick="clearOutput('recoOutput')"
+            >
+              <i class="fas fa-eraser"></i> Effacer
+            </button>
+          </div>
+          <div class="loader" id="recoOutputLoader">
+            <i class="fas fa-spinner fa-spin"></i>Chargement...
+          </div>
+          <div class="request-info" id="recoOutputRequestInfo"></div>
+          <h4>Réponse du Serveur :</h4>
+          <div class="formatted-output-area" id="recoOutput"></div>
+        </div>
+      </div>
+
+      <div class="service-section">
+        <h2>
+          <i class="fas fa-boxes"></i> Service d'Inventaire (/api/inventory/)
+        </h2>
+        <div class="button-group">
+          <button
+            class="btn-info"
+            onclick="handleRequest('GET', '/api/inventory/', null, 'inventoryOutput')"
+          >
+            <i class="fas fa-list"></i> Obtenir Tout l'Inventaire
+          </button>
+        </div>
+        <div class="form-group">
+          <label for="inventorySkuGet">SKU (pour obtenir) :</label>
+          <input type="text" id="inventorySkuGet" placeholder="ex: SKU-42" />
+        </div>
+        <div class="button-group">
+          <button
+            class="btn-info"
+            onclick="handleRequest('GET', `/api/inventory/${document.getElementById('inventorySkuGet').value}`, null, 'inventoryOutput')"
+          >
+            <i class="fas fa-box-open"></i> Obtenir Inventaire par SKU
+          </button>
+        </div>
+
+        <hr style="margin: 25px 0" />
+
+        <div class="form-group">
+          <label for="inventorySkuUpdate"
+            >SKU (pour mettre à jour stock) :</label
+          >
+          <input type="text" id="inventorySkuUpdate" placeholder="ex: SKU-42" />
+        </div>
+        <div class="form-group">
+          <label for="inventoryStockChange">Changement de Stock (+/-) :</label>
+          <input
+            type="number"
+            id="inventoryStockChange"
+            placeholder="ex: -5 ou 10"
+          />
+        </div>
+        <div class="button-group">
+          <button
+            class="btn-warning"
+            onclick="handleRequest('PUT', `/api/inventory/${document.getElementById('inventorySkuUpdate').value}`, { change: parseInt(document.getElementById('inventoryStockChange').value) || 0 }, 'inventoryOutput')"
+          >
+            <i class="fas fa-sync-alt"></i> Mettre à Jour Stock
+          </button>
+        </div>
+
+        <div class="output-container">
+          <div class="output-header">
+            <h3><i class="fas fa-laptop-code"></i> Détails de l'Opération :</h3>
+            <button
+              class="btn-secondary btn-sm"
+              onclick="clearOutput('inventoryOutput')"
+            >
+              <i class="fas fa-eraser"></i> Effacer
+            </button>
+          </div>
+          <div class="loader" id="inventoryOutputLoader">
+            <i class="fas fa-spinner fa-spin"></i>Chargement...
+          </div>
+          <div class="request-info" id="inventoryOutputRequestInfo"></div>
+          <h4>Réponse du Serveur :</h4>
+          <div class="formatted-output-area" id="inventoryOutput"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Fonction pour construire la commande cURL équivalente
+      function buildCurlCommand(method, url, body) {
+        let curlCmd = `curl -k -X ${method} "https://localhost${url}"`; // -k pour ignorer l'erreur SSL
+        if (body) {
+          curlCmd += ` -H "Content-Type: application/json" -d '${JSON.stringify(
+            body
+          )}'`;
+        }
+        return curlCmd;
+      }
+
+      // Fonction pour formater un objet JSON en HTML (liste de paires clé-valeur)
+      function formatObjectToHtml(obj, title) {
+        let html = `<div class="data-card">`;
+        if (title) {
+          let iconClass = "fa-cube"; // Icône par défaut
+          if (
+            title.toLowerCase().includes("order") ||
+            title.toLowerCase().includes("commande")
+          )
+            iconClass = "fa-receipt";
+          if (title.toLowerCase().includes("reco")) iconClass = "fa-lightbulb";
+          if (
+            title.toLowerCase().includes("inventory") ||
+            title.toLowerCase().includes("inventaire")
+          )
+            iconClass = "fa-box";
+          html += `<h5><i class="fas ${iconClass}"></i> ${title}</h5>`;
+        }
+        for (const key in obj) {
+          if (obj.hasOwnProperty(key)) {
+            let value = obj[key];
+            if (typeof value === "object" && value !== null) {
+              // Pour les objets/tableaux imbriqués, on les affiche en JSON brut dans une balise <pre>
+              value = `<pre class="raw-json-output">${JSON.stringify(
+                value,
+                null,
+                2
+              )}</pre>`;
+              html += `<div class="data-item"><strong>${key}:</strong> ${value}</div>`;
+            } else {
+              html += `<div class="data-item"><strong>${key}:</strong> <span>${value}</span></div>`;
+            }
+          }
+        }
+        html += `</div>`;
+        return html;
+      }
+
+      // Fonction pour gérer les requêtes API de manière générique
+      async function handleRequest(method, url, body, outputElementId) {
+        const outputElement = document.getElementById(outputElementId);
+        const loaderElement = document.getElementById(
+          outputElementId + "Loader"
+        );
+        const requestInfoElement = document.getElementById(
+          outputElementId + "RequestInfo"
+        );
+
+        outputElement.innerHTML = ""; // Vider la sortie formatée précédente
+        requestInfoElement.innerHTML = "";
+
+        const urlParts = url.split("/").filter(Boolean);
+        let finalUrl = url;
+        let missingId = false;
+
+        // Vérifier si un ID est manquant pour les opérations non-liste
+        // Ex: /api/orders/ (valide pour GET all), /api/orders/1 (valide), /api/orders/ (invalide pour GET by ID si ID vide)
+        if (urlParts.length >= 2) {
+          // Au moins /api/service
+          const potentialId = urlParts[urlParts.length - 1];
+          if (
+            (method !== "GET" || (method === "GET" && !url.endsWith("/"))) && // Pas un GET de liste
+            (potentialId === "null" ||
+              potentialId === "undefined" ||
+              potentialId === "" ||
+              potentialId === "NaN")
+          ) {
+            missingId = true;
+            finalUrl = url.replace(
+              /\/null$|\/undefined$|\/NaN$|\/*$/,
+              "/[ID_MANQUANT]"
+            );
+          }
+        }
+        if (method !== "POST" && method !== "GET" && url.endsWith("/")) {
+          // Ex: PUT /api/orders/
+          if (
+            !(url === "/api/orders/" && method === "GET") &&
+            !(url === "/api/reco/" && method === "GET") &&
+            !(url === "/api/inventory/" && method === "GET")
+          ) {
+            missingId = true;
+            finalUrl = url + "[ID_MANQUANT]";
+          }
+        }
+
+        if (missingId) {
+          requestInfoElement.innerHTML = `
+                    <p><strong>Erreur de Requête :</strong></p>
+                    <code>ID ou paramètre manquant pour la requête ${method}. Veuillez entrer une valeur.</code>
+                    <p>URL Tentée : <code>${finalUrl}</code></p>`;
+          return;
+        }
+
+        loaderElement.classList.add("active");
+
+        const curlEquivalent = buildCurlCommand(method, finalUrl, body);
+        requestInfoElement.innerHTML = `
+                <p><strong>Requête Envoyée :</strong></p>
+                <code>${method} ${finalUrl}</code>
+                <p style="margin-top: 10px;"><strong>Commande cURL équivalente (pour terminal) :</strong></p>
+                <code>${curlEquivalent}</code>`;
+
+        const options = {
+          method: method,
+          headers: { "Content-Type": "application/json" },
+        };
+        if (body) options.body = JSON.stringify(body);
+
+        try {
+          const response = await fetch(finalUrl, options);
+          let responseBodyText = await response.text();
+          let data = null;
+          let isJson = false;
+
+          if (responseBodyText) {
+            try {
+              data = JSON.parse(responseBodyText);
+              isJson = true;
+            } catch (e) {
+              data = responseBodyText; // Afficher comme texte si ce n'est pas du JSON valide
+            }
+          }
+
+          let statusClass = "status-info";
+          if (response.ok) statusClass = "status-success";
+          else if (response.status >= 400 && response.status < 500)
+            statusClass = "status-warning";
+          else if (response.status >= 500) statusClass = "status-error";
+
+          let headerInfo = `<p>Statut : <span class="status-badge ${statusClass}">${
+            response.status
+          } ${
+            response.statusText
+          }</span> | Cache (Nginx) : <span class="status-badge status-info">${
+            response.headers.get("X-Proxy-Cache") || "N/A"
+          }</span></p>`;
+
+          if (isJson) {
+            if (Array.isArray(data)) {
+              if (data.length === 0) {
+                outputElement.innerHTML =
+                  headerInfo + "<p>Aucun élément à afficher.</p>";
+              } else {
+                let cardsHtml = '<div class="data-card-container">';
+                data.forEach((item, index) => {
+                  let title = `Élément ${index + 1}`;
+                  if (item.id) title = `ID: ${item.id}`;
+                  else if (item.sku) title = `SKU: ${item.sku}`;
+                  else if (item.user_id) title = `User ID: ${item.user_id}`;
+                  cardsHtml += formatObjectToHtml(item, title);
+                });
+                cardsHtml += "</div>";
+                outputElement.innerHTML = headerInfo + cardsHtml;
+              }
+            } else if (typeof data === "object" && data !== null) {
+              let title = "Détail de l'objet";
+              if (data.id) title = `ID: ${data.id}`;
+              else if (data.sku) title = `SKU: ${data.sku}`;
+              outputElement.innerHTML =
+                headerInfo + formatObjectToHtml(data, title);
+            } else {
+              // Si ce n'est pas un objet ou un tableau (ex: simple message JSON)
+              outputElement.innerHTML =
+                headerInfo +
+                `<pre class="raw-json-output">${JSON.stringify(
+                  data,
+                  null,
+                  2
+                )}</pre>`;
+            }
+          } else {
+            // Si ce n'est pas du JSON (texte brut, erreur HTML, etc.)
+            if (method === "DELETE" && response.ok && !data) {
+              outputElement.innerHTML =
+                headerInfo + "<p>Ressource supprimée avec succès.</p>";
+            } else if (!responseBodyText && response.ok) {
+              outputElement.innerHTML =
+                headerInfo +
+                "<p>Requête réussie, aucun contenu retourné (ex: 204 No Content).</p>";
+            } else {
+              outputElement.innerHTML =
+                headerInfo +
+                `<pre class="raw-json-output">${
+                  data || "Aucune donnée textuelle dans la réponse."
+                }</pre>`;
+            }
+          }
+        } catch (error) {
+          console.error("Erreur Fetch :", error);
+          requestInfoElement.innerHTML += `<p style="margin-top:10px;"><strong>Erreur Réseau/Client :</strong> <span class="status-badge status-error">${error.message}</span><br><small>Vérifiez la console et assurez-vous que les services sont démarrés et accessibles.</small></p>`;
+          outputElement.innerHTML = ""; // Vider la zone de données en cas d'erreur réseau
+        } finally {
+          loaderElement.classList.remove("active");
+        }
+      }
+
+      function clearOutput(outputElementId) {
+        document.getElementById(outputElementId).innerHTML = "";
+        document.getElementById(outputElementId + "RequestInfo").innerHTML = "";
+        const loaderElement = document.getElementById(
+          outputElementId + "Loader"
+        );
+        if (loaderElement) loaderElement.classList.remove("active");
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,91 @@
+services:
+  # ------------ EDGE ------------
+  nginx:
+    image: nginx:1.25
+    container_name: edge
+    ports:
+      - "80:80"
+      - "443:443" # Expose HTTPS port
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/html:/usr/share/nginx/html:ro # Mount our new HTML interface
+      - ./nginx/ssl:/etc/nginx/ssl:ro # Mount SSL certificates
+      - nginx_cache:/var/cache/nginx # Persistent volume for Nginx cache
+    depends_on:
+      order:
+        condition: service_started # Optional: wait for services to start
+      reco:
+        condition: service_started
+      inventory:
+        condition: service_started
+    networks:
+      backend:
+      monitoring:
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.2
+    command: ["--nginx.scrape-uri=http://edge/stub_status"]
+    depends_on: [nginx]
+    ports:
+      - "9113:9113"
+    networks:
+      backend:
+        aliases:
+          - nginx-exporter
+      monitoring:
+        aliases:
+          - nginx-exporter
+
+  # ----------- SERVICES ----------
+  order:
+    build: ./order-service
+    deploy: { replicas: 2 } # This works best with Docker Swarm mode or if Nginx upstream explicitly lists multiple instances
+    expose: ["4000"]
+    networks:
+      backend:
+      monitoring:
+
+  reco:
+    build: ./reco-service
+    expose: ["5000"]
+    networks:
+      backend:
+      monitoring:
+
+  inventory:
+    build: ./inventory-service
+    expose: ["8000"]
+    networks:
+      backend:
+      monitoring:
+
+  # --------- OBSERVABILITY -------
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      monitoring:
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    ports:
+      - "3001:3000"
+    depends_on: [prometheus]
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/ds.yml
+      - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/all.yml
+      - ./grafana/nginx-dashboard.json:/var/lib/grafana/dashboards/nginx.json
+      - ./grafana/ecom-dashboard.json:/var/lib/grafana/dashboards/ecom-dashboard.json # Ensure this is also correctly mapped
+    networks:
+      monitoring:
+
+# Define the persistent volume for Nginx cache
+volumes:
+  nginx_cache:
+
+networks:
+  backend:
+  monitoring:

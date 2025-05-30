@@ -1,0 +1,8 @@
+# dashboards.yml
+apiVersion: 1
+providers:
+  - name: default
+    folder: Imported
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
