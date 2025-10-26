@@ -13,6 +13,7 @@ Ce projet est une démonstration d'une application e-commerce construite sur une
 * **Couche Périphérique :** Nginx (Reverse Proxy, API Gateway, SSL, Cache, Load Balancer)
 * **Conteneurisation :** Docker & Docker Compose
 * **Observabilité :** Prometheus & Grafana
+* **Sécurité & Monitoring Réseau :** nmap, SNMP, PowerShell, outils d'audit de sécurité
 * **Interface Utilisateur :** Simple UI en HTML, CSS, JS servie par Nginx.
 
 ---

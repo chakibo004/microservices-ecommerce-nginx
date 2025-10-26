@@ -1,0 +1,4 @@
+# Security audit reports will be stored here
+# Each audit generates a timestamped report file
+
+.gitkeep

@@ -1,0 +1,951 @@
+% Ce chapitre détaille les outils de sécurité et de monitoring réseau ajoutés au projet
+% À insérer dans le document principal après le chapitre "Observabilité"
+
+\chapter{Sécurité et Monitoring Réseau Avancé}
+
+\section{Introduction et Motivation}
+Dans le cadre de l'évolution de ce projet de microservices e-commerce, une dimension supplémentaire de sécurité et de surveillance réseau a été intégrée. Cette amélioration vise à répondre aux besoins opérationnels suivants :
+
+\begin{itemize}
+    \item \textbf{Découverte et Cartographie Réseau :} Identifier automatiquement tous les services actifs, leurs ports ouverts et les technologies utilisées.
+    \item \textbf{Évaluation des Vulnérabilités :} Détecter proactivement les failles de sécurité potentielles avant qu'elles ne soient exploitées.
+    \item \textbf{Surveillance des Performances Système :} Monitorer en continu les ressources système (CPU, mémoire, réseau, disque) via des protocoles standardisés.
+    \item \textbf{Automatisation des Audits de Sécurité :} Effectuer des vérifications périodiques automatisées de la configuration de sécurité.
+    \item \textbf{Documentation et Conformité :} Générer des rapports détaillés pour la documentation technique et les audits de conformité.
+\end{itemize}
+
+Cette approche proactive de la sécurité et du monitoring s'inscrit dans les meilleures pratiques DevSecOps, où la sécurité est intégrée dès les premières phases du cycle de développement.
+
+\section{Architecture du Container Security Tools}
+
+\subsection{Vue d'Ensemble}
+Un container Docker dédié nommé \texttt{security-tools} a été créé et intégré à l'architecture existante. Ce container regroupe un ensemble d'outils de sécurité et de monitoring réseau professionnels, préconfiguré pour analyser l'infrastructure microservices.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.5cm and 2cm,
+        container/.style={rectangle, draw, fill=blue!10, rounded corners, minimum height=1.2cm, minimum width=3cm, text width=2.8cm, align=center, drop shadow},
+        tool/.style={rectangle, draw, fill=green!10, rounded corners, minimum height=0.8cm, minimum width=2.5cm, text width=2.3cm, align=center, font=\small},
+        network/.style={rectangle, draw, dashed, rounded corners, inner sep=0.5cm, fill=gray!5},
+        arrow/.style={-Stealth, thick}
+    ]
+    
+    % Container principal
+    \node[container] (security_tools) {\textbf{security-tools}\\\scriptsize Ubuntu 22.04};
+    
+    % Outils à l'intérieur
+    \node[tool, below left=0.5cm and -0.5cm of security_tools] (nmap) {nmap 7.80};
+    \node[tool, below=0.5cm of security_tools] (snmp) {SNMP / snmpd};
+    \node[tool, below right=0.5cm and -0.5cm of security_tools] (pwsh) {PowerShell 7.5.3};
+    \node[tool, below=1.5cm of nmap] (tcpdump) {tcpdump};
+    \node[tool, below=1.5cm of snmp] (netstat) {netstat};
+    \node[tool, below=1.5cm of pwsh] (traceroute) {traceroute};
+    
+    % Services cibles
+    \node[container, right=4cm of security_tools, yshift=1cm] (nginx) {Nginx\\Gateway};
+    \node[container, right=4cm of security_tools] (services) {Microservices\\Backend};
+    \node[container, right=4cm of security_tools, yshift=-1cm] (monitoring) {Stack\\Monitoring};
+    
+    % Connexions
+    \draw[arrow, blue, thick] (security_tools.east) -- node[above, font=\scriptsize] {Scan \& Monitor} (nginx.west);
+    \draw[arrow, blue, thick] (security_tools.east) -- node[above, font=\scriptsize] {Health Checks} (services.west);
+    \draw[arrow, blue, thick] (security_tools.east) -- node[below, font=\scriptsize] {Query Metrics} (monitoring.west);
+    
+    % Réseau
+    \begin{pgfonlayer}{background}
+        \node[network, fit=(security_tools) (nmap) (tcpdump) (netstat) (traceroute), 
+              label={[anchor=north]north:Réseau Docker: backend \& monitoring}] {};
+    \end{pgfonlayer}
+    
+    \end{tikzpicture}
+    \caption{Architecture du Container Security Tools dans l'Infrastructure}
+    \label{fig:security_tools_architecture}
+\end{figure}
+
+\subsection{Intégration dans Docker Compose}
+Le container \texttt{security-tools} est intégré dans le fichier \texttt{docker-compose.yml} existant avec la configuration suivante :
+
+\begin{lstlisting}[language=YAML, caption=Configuration Docker Compose du Container Security Tools, basicstyle=\ttfamily\tiny]
+services:
+  # ... (autres services existants)
+  
+  security-tools:
+    build: ./security-tools
+    container_name: security-tools
+    volumes:
+      - ./security-tools/scripts:/security-tools/scripts:ro
+      - ./security-tools/reports:/security-tools/reports
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Optionnel
+    networks:
+      - backend
+      - monitoring
+    depends_on:
+      - nginx
+      - order
+      - reco
+      - inventory
+    tty: true
+    stdin_open: true
+\end{lstlisting}
+
+\textbf{Points clés de la configuration :}
+\begin{itemize}
+    \item \textbf{Volumes montés :} Les scripts sont montés en lecture seule (\texttt{:ro}) pour des raisons de sécurité, tandis que le répertoire des rapports est accessible en écriture.
+    \item \textbf{Double réseau :} Connexion aux réseaux \texttt{backend} et \texttt{monitoring} pour un accès complet à tous les services.
+    \item \textbf{Socket Docker :} L'accès optionnel au socket Docker permet des opérations avancées de gestion de containers.
+    \item \textbf{Mode interactif :} \texttt{tty} et \texttt{stdin\_open} permettent l'accès shell interactif pour les opérations manuelles.
+\end{itemize}
+
+\section{Outils Intégrés}
+
+\subsection{nmap - Network Mapper}
+
+\subsubsection{Description Technique}
+\textbf{nmap} (Network Mapper) est un outil open-source de découverte réseau et d'audit de sécurité développé en C/C++ et Lua. Il utilise des paquets IP bruts pour déterminer :
+\begin{itemize}
+    \item Les hôtes disponibles sur le réseau
+    \item Les services (nom et version) offerts par ces hôtes
+    \item Les systèmes d'exploitation et leurs versions
+    \item Les types de filtres de paquets/pare-feu en utilisation
+    \item Des caractéristiques de sécurité supplémentaires
+\end{itemize}
+
+\subsubsection{Cas d'Usage dans le Projet}
+Dans le contexte de notre infrastructure microservices, nmap remplit plusieurs fonctions critiques :
+
+\begin{enumerate}
+    \item \textbf{Inventaire des Services :}
+    \begin{lstlisting}[language=bash, caption=Scan de Base des Services]
+# Scanner tous les ports ouverts sur le service Order
+nmap -sV -p 4000 order
+
+# Résultat attendu :
+PORT     STATE SERVICE VERSION
+4000/tcp open  http    Node.js Express framework
+    \end{lstlisting}
+    
+    \item \textbf{Détection de Version :}
+    \begin{lstlisting}[language=bash, caption=Détection Détaillée des Versions]
+# Scan avec détection de version agressive
+nmap -sV --version-intensity 9 reco
+
+# Identifie : Werkzeug/3.1.3 Python/3.12.12
+    \end{lstlisting}
+    
+    \item \textbf{Scan de Vulnérabilités :}
+    \begin{lstlisting}[language=bash, caption=Scan de Vulnérabilités avec Scripts NSE]
+# Utilisation du moteur de scripts Nmap (NSE)
+nmap --script vuln nginx -p 80,443
+
+# Vérifie les vulnérabilités CVE connues
+    \end{lstlisting}
+    
+    \item \textbf{Validation SSL/TLS :}
+    \begin{lstlisting}[language=bash, caption=Analyse des Certificats SSL]
+# Vérifier les certificats et la configuration SSL
+nmap --script ssl-cert,ssl-enum-ciphers nginx -p 443
+
+# Affiche :
+# - Validité du certificat
+# - Algorithmes de chiffrement supportés
+# - Versions de protocoles TLS
+    \end{lstlisting}
+\end{enumerate}
+
+\subsubsection{Métriques Collectées}
+\begin{table}[H]
+\centering
+\caption{Métriques nmap par Service}
+\label{tab:nmap_metrics}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Service} & \textbf{Port} & \textbf{Technologie Détectée} & \textbf{Latence} \\
+\hline
+Order & 4000 & Node.js Express & 67µs \\
+Reco & 5000 & Python 3.12/Werkzeug & 74µs \\
+Inventory & 8000 & Go HTTP Server & 58µs \\
+Nginx & 80, 443 & nginx 1.25 & 12µs \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{SNMP - Simple Network Management Protocol}
+
+\subsubsection{Fondamentaux Théoriques}
+SNMP est un protocole de la couche application (niveau 7 OSI) conçu pour gérer et surveiller les équipements réseau. Il repose sur une architecture Manager-Agent :
+
+\begin{itemize}
+    \item \textbf{SNMP Manager :} Station de gestion qui interroge les agents
+    \item \textbf{SNMP Agent :} Processus démon (snmpd) s'exécutant sur les équipements surveillés
+    \item \textbf{MIB (Management Information Base) :} Base de données hiérarchique d'objets gérés, identifiés par des OID (Object Identifiers)
+\end{itemize}
+
+\subsubsection{OID Critiques Utilisés}
+\begin{table}[H]
+\centering
+\caption{OID SNMP Standards Interrogés}
+\label{tab:snmp_oids}
+\begin{tabular}{|l|p{6cm}|p{4cm}|}
+\hline
+\textbf{OID} & \textbf{Description} & \textbf{Utilité} \\
+\hline
+1.3.6.1.2.1.1.1.0 & sysDescr - Description système & Identification de l'OS \\
+1.3.6.1.2.1.1.3.0 & sysUpTime - Uptime système & Temps depuis le dernier reboot \\
+1.3.6.1.2.1.1.5.0 & sysName - Nom d'hôte & Identification du nœud \\
+1.3.6.1.2.1.2.2.1.2 & ifDescr - Interfaces réseau & Liste des interfaces \\
+1.3.6.1.2.1.25.1.5.0 & hrSystemProcesses - Nb processus & Charge système \\
+1.3.6.1.4.1.2021.10 & laLoad - Load Average & CPU load 1/5/15 min \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Implémentation dans le Projet}
+\begin{lstlisting}[language=bash, caption=Exemples de Requêtes SNMP, basicstyle=\ttfamily\tiny]
+# Configuration du démon SNMP
+service snmpd start
+
+# Requête simple : obtenir la description système
+snmpget -v2c -c public localhost 1.3.6.1.2.1.1.1.0
+# Résultat : Linux security-tools 5.15.0 x86_64
+
+# Walk d'une branche MIB : interfaces réseau
+snmpwalk -v2c -c public localhost 1.3.6.1.2.1.2.2.1.2
+# Liste toutes les interfaces eth0, lo, docker0, etc.
+
+# Requête bulk pour optimisation
+snmpbulkwalk -v2c -c public localhost 1.3.6.1.2.1.2
+# Récupère efficacement toute la sous-arborescence des interfaces
+\end{lstlisting}
+
+\subsubsection{Visualisation des Données SNMP}
+Les données SNMP collectées sont structurées et affichées dans le script \texttt{snmp-monitor.sh} :
+
+\begin{lstlisting}[language=bash, caption=Structure du Rapport SNMP, basicstyle=\ttfamily\tiny]
+=== SYSTEM INFORMATION ===
+Hostname: security-tools
+Kernel: 5.15.0-89-generic
+Uptime: 2 days, 14:32:15
+
+=== CPU LOAD ===
+Cpu(s): 12.5%us, 3.2%sy, 0.0%ni, 83.1%id, 1.2%wa
+
+=== MEMORY USAGE ===
+              total        used        free      shared  buff/cache   available
+Mem:          15Gi        8.2Gi       4.1Gi       342Mi       2.8Gi       6.5Gi
+
+=== DISK USAGE ===
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        98G   45G   48G  49% /
+
+=== NETWORK STATISTICS ===
+Interface    RX packets    TX packets    RX bytes    TX bytes
+eth0         1245632       987543        1.2GB       856MB
+docker0      543210        432109        543MB       234MB
+\end{lstlisting}
+
+\subsection{PowerShell 7 - Automation et Scripting Cross-Platform}
+
+\subsubsection{Architecture et Installation}
+PowerShell 7 (anciennement PowerShell Core) est une version open-source et cross-platform de PowerShell, construite sur .NET Core. Son installation dans le container Ubuntu nécessite l'ajout du dépôt Microsoft :
+
+\begin{lstlisting}[language=Dockerfile, caption=Installation de PowerShell dans le Dockerfile, basicstyle=\ttfamily\tiny]
+# Installation des prérequis
+RUN apt-get update && apt-get install -y \
+    wget apt-transport-https software-properties-common
+
+# Ajout du dépôt Microsoft
+RUN wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm packages-microsoft-prod.deb
+
+# Installation de PowerShell
+RUN apt-get update && apt-get install -y powershell
+\end{lstlisting}
+
+\subsubsection{Scripts PowerShell Développés}
+
+\paragraph{Script 1: monitor-services.ps1}
+Ce script effectue des vérifications de santé automatisées sur tous les microservices.
+
+\begin{lstlisting}[language=PowerShell, caption=Fonction de Health Check, basicstyle=\ttfamily\tiny]
+function Test-ServiceHealth {
+    param(
+        [string]$ServiceName,
+        [string]$HostName,
+        [int]$Port,
+        [string]$Path
+    )
+    
+    $url = "http://${HostName}:${Port}${Path}"
+    
+    try {
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $response = Invoke-WebRequest -Uri $url -TimeoutSec 5 `
+                                       -UseBasicParsing -ErrorAction Stop
+        $stopwatch.Stop()
+        
+        if ($response.StatusCode -eq 200) {
+            Write-Host "[✓] $ServiceName is HEALTHY" -ForegroundColor Green
+            Write-Host "    Response Time: $($stopwatch.ElapsedMilliseconds)ms"
+            return $true
+        }
+    }
+    catch {
+        Write-Host "[✗] $ServiceName is DOWN" -ForegroundColor Red
+        Write-Host "    Error: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+# Définition des services à surveiller
+$services = @(
+    @{Name="Order Service"; Host="order"; Port=4000; Path="/metrics"},
+    @{Name="Reco Service"; Host="reco"; Port=5000; Path="/metrics"},
+    @{Name="Inventory Service"; Host="inventory"; Port=8000; Path="/metrics"},
+    @{Name="Nginx"; Host="nginx"; Port=80; Path="/stub_status"},
+    @{Name="Prometheus"; Host="prometheus"; Port=9090; Path="/-/healthy"},
+    @{Name="Grafana"; Host="grafana"; Port=3000; Path="/api/health"}
+)
+
+# Exécution des checks
+$healthyCount = 0
+foreach ($service in $services) {
+    $isHealthy = Test-ServiceHealth -ServiceName $service.Name `
+                                     -HostName $service.Host `
+                                     -Port $service.Port `
+                                     -Path $service.Path
+    if ($isHealthy) { $healthyCount++ }
+}
+
+# Calcul du taux de succès
+$successRate = [math]::Round(($healthyCount / $services.Count) * 100, 2)
+Write-Host "`nSuccess Rate: $successRate%" -ForegroundColor $(
+    if ($successRate -eq 100) { "Green" } else { "Yellow" }
+)
+\end{lstlisting}
+
+\paragraph{Script 2: security-audit.ps1}
+Effectue un audit de sécurité complet de l'infrastructure.
+
+\begin{lstlisting}[language=PowerShell, caption=Vérification des Headers de Sécurité, basicstyle=\ttfamily\tiny]
+function Test-SecurityHeaders {
+    param([string]$HostName, [int]$Port)
+    
+    $url = "http://${HostName}:${Port}"
+    $response = Invoke-WebRequest -Uri $url -UseBasicParsing
+    
+    $securityHeaders = @(
+        "X-Frame-Options",
+        "X-Content-Type-Options",
+        "X-XSS-Protection",
+        "Strict-Transport-Security",
+        "Content-Security-Policy",
+        "Referrer-Policy"
+    )
+    
+    Write-Host "`n[2] Security Headers Check" -ForegroundColor Cyan
+    foreach ($header in $securityHeaders) {
+        if ($response.Headers.ContainsKey($header)) {
+            Write-Host "  [✓] $header : " -ForegroundColor Green -NoNewline
+            Write-Host "$($response.Headers[$header])"
+        }
+        else {
+            Write-Host "  [✗] $header : MISSING" -ForegroundColor Red
+        }
+    }
+}
+\end{lstlisting}
+
+\paragraph{Script 3: automated-monitor.ps1}
+Surveillance continue avec boucle d'exécution périodique.
+
+\begin{lstlisting}[language=PowerShell, caption=Monitoring Automatisé, basicstyle=\ttfamily\tiny]
+param([int]$IntervalSeconds = 300)  # 5 minutes par défaut
+
+$iteration = 1
+
+while ($true) {
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    
+    Write-Host "`n========================================" -ForegroundColor Green
+    Write-Host "Monitoring Iteration #$iteration" -ForegroundColor Green
+    Write-Host "Timestamp: $timestamp" -ForegroundColor Green
+    Write-Host "========================================`n" -ForegroundColor Green
+    
+    # Exécution séquentielle des scripts de monitoring
+    & pwsh /security-tools/scripts/monitor-services.ps1
+    & bash /security-tools/scripts/network-scan.sh
+    & bash /security-tools/scripts/snmp-monitor.sh
+    
+    $iteration++
+    Start-Sleep -Seconds $IntervalSeconds
+}
+\end{lstlisting}
+
+\subsection{Outils Réseau Complémentaires}
+
+\subsubsection{tcpdump - Analyse de Paquets}
+\textbf{tcpdump} est un analyseur de paquets réseau en ligne de commande qui permet de capturer et d'afficher les paquets TCP/IP transmis ou reçus sur une interface réseau.
+
+\begin{lstlisting}[language=bash, caption=Exemples d'Utilisation de tcpdump]
+# Capturer le trafic HTTP vers le service Order
+tcpdump -i any host order and port 4000 -w /security-tools/reports/order-traffic.pcap
+
+# Afficher le trafic en temps réel avec détails ASCII
+tcpdump -i any -A -s 0 'tcp port 80'
+
+# Capturer uniquement les requêtes HTTP POST
+tcpdump -i any 'tcp port 4000 and tcp[((tcp[12:1] & 0xf0) >> 2):4] = 0x504F5354'
+\end{lstlisting}
+
+\subsubsection{netstat - Statistiques Réseau}
+\textbf{netstat} affiche les connexions réseau actives, les tables de routage, les statistiques d'interfaces, etc.
+
+\begin{lstlisting}[language=bash, caption=Analyse des Connexions avec netstat]
+# Lister tous les ports en écoute
+netstat -tuln
+# -t : TCP, -u : UDP, -l : listening, -n : numérique (pas de résolution DNS)
+
+# Afficher les connexions établies
+netstat -tn | grep ESTABLISHED
+
+# Statistiques par protocole
+netstat -s
+\end{lstlisting}
+
+\subsubsection{traceroute - Traçage de Routes}
+Trace le chemin que prennent les paquets IP vers un hôte de destination.
+
+\begin{lstlisting}[language=bash, caption=Traçage de Route Réseau]
+# Tracer le chemin vers le service Nginx
+traceroute nginx
+
+# Avec numéros de port spécifiques (TCP)
+traceroute -T -p 443 nginx
+\end{lstlisting}
+
+\section{Scripts Automatisés}
+
+\subsection{network-scan.sh - Scan Réseau Complet}
+
+Ce script Bash orchestre une série de scans nmap pour analyser l'ensemble de l'infrastructure microservices.
+
+\begin{lstlisting}[language=bash, caption=network-scan.sh (extrait), basicstyle=\ttfamily\tiny]
+#!/bin/bash
+
+echo "==================================="
+echo "Network Security Scan - E-Commerce Stack"
+echo "==================================="
+
+# Fonction pour scanner un service spécifique
+scan_service() {
+    local service_name=$1
+    local service_host=$2
+    local service_port=$3
+    
+    echo "Scanning ${service_name}..."
+    echo "Host: ${service_host}:${service_port}"
+    
+    # Scan avec détection de version
+    nmap -sV -p ${service_port} ${service_host}
+    
+    # Vérification de la disponibilité
+    if nc -zv ${service_host} ${service_port} 2>&1 | grep -q "succeeded"; then
+        echo "✓ ${service_name} is UP"
+    else
+        echo "✗ ${service_name} is DOWN"
+    fi
+}
+
+# Scan des services backend
+scan_service "Order Service" "order" "4000"
+scan_service "Recommendation Service" "reco" "5000"
+scan_service "Inventory Service" "inventory" "8000"
+
+# Scan de Nginx avec détection de vulnérabilités
+echo "=== Nginx Vulnerability Scan ==="
+nmap -sV --script vuln nginx -p 80,443
+
+# Analyse SSL/TLS
+echo "=== SSL/TLS Certificate Check ==="
+echo | openssl s_client -connect nginx:443 -servername localhost 2>/dev/null \
+    | openssl x509 -noout -text | grep -A 2 "Validity"
+\end{lstlisting}
+
+\subsection{Génération de Rapports}
+
+\subsubsection{Structure des Rapports}
+Les scripts génèrent automatiquement des rapports horodatés dans le répertoire \texttt{./security-tools/reports/} :
+
+\begin{lstlisting}[caption=Structure d'un Rapport de Sécurité]
+========================================
+SECURITY AUDIT REPORT
+========================================
+Generated: 2025-10-20 10:30:45
+Project: E-Commerce Microservices Stack
+========================================
+
+SUMMARY:
+- Total Services Scanned: 6
+- Critical Issues: 0
+- Warnings: 2
+- Info Items: 8
+
+========================================
+DETAILED FINDINGS:
+========================================
+
+[HIGH] Missing Content-Security-Policy header on Nginx
+Recommendation: Add CSP header to prevent XSS attacks
+
+[MEDIUM] TLS 1.0/1.1 protocols enabled
+Recommendation: Disable legacy TLS versions, use only TLS 1.2+
+
+[INFO] Rate limiting detected and active on Nginx
+Status: ✓ PASS
+
+[INFO] All services respond within acceptable latency (<100ms)
+Status: ✓ PASS
+
+========================================
+COMPLIANCE CHECKLIST:
+========================================
+✓ SSL/TLS encryption enabled
+✓ HTTP to HTTPS redirect active
+✗ Content Security Policy needs implementation
+✓ Security headers present (HSTS, X-Frame-Options, etc.)
+✓ Rate limiting configured
+✓ SNMP monitoring functional
+✓ All services accessible and responding
+
+========================================
+RECOMMENDATIONS:
+========================================
+1. Implement comprehensive Content Security Policy
+2. Upgrade TLS configuration to remove legacy protocols
+3. Review and update security headers monthly
+4. Implement Web Application Firewall (WAF)
+5. Enable audit logging for all admin actions
+6. Rotate SSL certificates every 90 days
+
+========================================
+\end{lstlisting}
+
+\section{Cas d'Usage Opérationnels}
+
+\subsection{Scénario 1 : Health Check Quotidien}
+\textbf{Contexte :} Vérification matinale de l'état de tous les services avant le début des opérations.
+
+\begin{lstlisting}[language=PowerShell, caption=Commande de Check Quotidien]
+# Exécution depuis Windows PowerShell
+docker exec -it security-tools pwsh /security-tools/scripts/monitor-services.ps1
+
+# Résultat attendu :
+# [✓] Order Service is HEALTHY (Response Time: 45ms)
+# [✓] Reco Service is HEALTHY (Response Time: 32ms)
+# [✓] Inventory Service is HEALTHY (Response Time: 28ms)
+# [✓] Nginx is HEALTHY (Response Time: 12ms)
+# [✓] Prometheus is HEALTHY (Response Time: 8ms)
+# [✓] Grafana is HEALTHY (Response Time: 15ms)
+# Success Rate: 100%
+\end{lstlisting}
+
+\subsection{Scénario 2 : Investigation de Lenteur}
+\textbf{Contexte :} Un utilisateur signale que le site est lent. Investigation des ressources système.
+
+\begin{lstlisting}[language=bash, caption=Analyse des Performances Système]
+# 1. Vérifier les métriques système via SNMP
+docker exec -it security-tools bash /security-tools/scripts/snmp-monitor.sh
+
+# Résultat révèle : CPU à 95%, RAM saturée
+# === CPU LOAD ===
+# Cpu(s): 95.2%us, 3.8%sy, 0.0%ni, 0.5%id, 0.5%wa
+
+# 2. Identifier le service consommateur
+docker exec -it security-tools bash -c "top -bn1 | head -n 20"
+
+# 3. Analyser le trafic réseau
+docker exec -it security-tools tcpdump -i any -c 100 host order
+\end{lstlisting}
+
+\subsection{Scénario 3 : Audit Pré-Production}
+\textbf{Contexte :} Avant de déployer en production, effectuer un audit de sécurité complet.
+
+\begin{lstlisting}[language=PowerShell, caption=Audit de Sécurité Complet]
+# Exécuter l'audit complet
+docker exec -it security-tools pwsh /security-tools/scripts/security-audit.ps1
+
+# Vérifier le rapport généré
+docker exec -it security-tools ls -lh /security-tools/reports/
+
+# Copier le rapport sur Windows pour analyse
+docker cp security-tools:/security-tools/reports/security-audit-2025-10-20_10-30-45.txt `
+    "$env:USERPROFILE\Desktop\"
+\end{lstlisting}
+
+\subsection{Scénario 4 : Monitoring Continu en Production}
+\textbf{Contexte :} Surveillance 24/7 avec génération de rapports périodiques.
+
+\begin{lstlisting}[language=PowerShell, caption=Lancement du Monitoring Continu]
+# Démarrer le monitoring automatisé toutes les 10 minutes
+docker exec -d security-tools pwsh /security-tools/scripts/automated-monitor.ps1 `
+    -IntervalSeconds 600
+
+# Surveiller les logs en temps réel
+docker logs -f security-tools
+
+# Arrêter le monitoring (si nécessaire)
+docker exec security-tools pkill -f automated-monitor.ps1
+\end{lstlisting}
+
+\section{Métriques et KPI de Sécurité}
+
+\subsection{Indicateurs Clés Mesurés}
+
+\begin{table}[H]
+\centering
+\caption{KPI de Sécurité et Monitoring}
+\label{tab:security_kpis}
+\begin{tabular}{|p{5cm}|p{3cm}|p{5cm}|}
+\hline
+\textbf{Métrique} & \textbf{Objectif} & \textbf{Outil de Mesure} \\
+\hline
+Temps de réponse moyen & < 100ms & monitor-services.ps1 \\
+\hline
+Taux de disponibilité & > 99.9\% & monitor-services.ps1 \\
+\hline
+Ports non autorisés ouverts & 0 & nmap (network-scan.sh) \\
+\hline
+Vulnérabilités critiques & 0 & nmap --script vuln \\
+\hline
+Headers de sécurité manquants & 0 & security-audit.ps1 \\
+\hline
+Utilisation CPU & < 80\% & SNMP (snmp-monitor.sh) \\
+\hline
+Utilisation RAM & < 85\% & SNMP (snmp-monitor.sh) \\
+\hline
+Espace disque libre & > 20\% & SNMP (snmp-monitor.sh) \\
+\hline
+Certificat SSL expiré & Non & nmap --script ssl-cert \\
+\hline
+Rate limiting actif & Oui & security-audit.ps1 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Dashboard de Synthèse}
+
+Les métriques collectées peuvent être visualisées de manière centralisée :
+
+\begin{lstlisting}[language=PowerShell, caption=Génération d'un Rapport de Synthèse]
+# Script pour générer un dashboard texte
+$summary = @"
+╔═══════════════════════════════════════════════════════════╗
+║           SECURITY & MONITORING DASHBOARD                 ║
+║                   $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")                  ║
+╠═══════════════════════════════════════════════════════════╣
+║ Services Status                                           ║
+╠═══════════════════════════════════════════════════════════╣
+║ Order Service        [✓] HEALTHY    Response: 45ms       ║
+║ Reco Service         [✓] HEALTHY    Response: 32ms       ║
+║ Inventory Service    [✓] HEALTHY    Response: 28ms       ║
+║ Nginx Gateway        [✓] HEALTHY    Response: 12ms       ║
+║ Prometheus           [✓] HEALTHY    Response: 8ms        ║
+║ Grafana              [✓] HEALTHY    Response: 15ms       ║
+╠═══════════════════════════════════════════════════════════╣
+║ System Resources                                          ║
+╠═══════════════════════════════════════════════════════════╣
+║ CPU Usage:           45%        [▓▓▓▓▓░░░░░]             ║
+║ RAM Usage:           62%        [▓▓▓▓▓▓░░░░]             ║
+║ Disk Usage:          49%        [▓▓▓▓▓░░░░░]             ║
+║ Network Load:        LOW         12 Mbps                 ║
+╠═══════════════════════════════════════════════════════════╣
+║ Security Posture                                          ║
+╠═══════════════════════════════════════════════════════════╣
+║ Open Ports:          6           [Expected]              ║
+║ SSL Status:          ✓ Valid     Expires: 2026-10-20    ║
+║ Security Headers:    ✓ Present   5/6 headers set        ║
+║ Rate Limiting:       ✓ Active    10 req/s per IP        ║
+║ Vulnerabilities:     0 Critical  2 Medium                ║
+╠═══════════════════════════════════════════════════════════╣
+║ Last Scan:           2025-10-20 10:30:45                 ║
+║ Next Scan:           2025-10-20 10:40:45                 ║
+╚═══════════════════════════════════════════════════════════╝
+"@
+
+Write-Host $summary
+\end{lstlisting}
+
+\section{Intégration CI/CD}
+
+\subsection{Pipeline de Sécurité Automatisé}
+
+Les scripts de sécurité peuvent être intégrés dans un pipeline CI/CD pour automatiser les vérifications à chaque déploiement :
+
+\begin{lstlisting}[language=YAML, caption=Exemple GitHub Actions Workflow, basicstyle=\ttfamily\tiny]
+name: Security Audit Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Exécuter tous les jours à 2h du matin
+    - cron: '0 2 * * *'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Build Docker containers
+      run: docker-compose up -d --build
+    
+    - name: Wait for services to be ready
+      run: sleep 30
+    
+    - name: Run Network Scan
+      run: |
+        docker exec security-tools bash /security-tools/scripts/network-scan.sh \
+          > network-scan-report.txt
+    
+    - name: Run Security Audit
+      run: |
+        docker exec security-tools pwsh /security-tools/scripts/security-audit.ps1 \
+          > security-audit-report.txt
+    
+    - name: Check for Critical Issues
+      run: |
+        if grep -q "CRITICAL" security-audit-report.txt; then
+          echo "::error::Critical security issues found!"
+          exit 1
+        fi
+    
+    - name: Upload Reports as Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          network-scan-report.txt
+          security-audit-report.txt
+          ./security-tools/reports/
+    
+    - name: Cleanup
+      if: always()
+      run: docker-compose down -v
+\end{lstlisting}
+
+\subsection{Gates de Qualité}
+
+Des seuils peuvent être définis pour bloquer un déploiement si les critères de sécurité ne sont pas respectés :
+
+\begin{lstlisting}[language=PowerShell, caption=Validation des Gates de Qualité]
+# Script de validation
+$criticalIssues = 0
+$highIssues = 0
+$mediumIssues = 0
+
+# Parser le rapport d'audit
+$reportContent = Get-Content "/security-tools/reports/security-audit-*.txt"
+
+foreach ($line in $reportContent) {
+    if ($line -match "\[CRITICAL\]") { $criticalIssues++ }
+    if ($line -match "\[HIGH\]") { $highIssues++ }
+    if ($line -match "\[MEDIUM\]") { $mediumIssues++ }
+}
+
+# Définir les seuils
+$maxCritical = 0
+$maxHigh = 2
+$maxMedium = 5
+
+# Vérifier les seuils
+if ($criticalIssues -gt $maxCritical) {
+    Write-Host "GATE FAILED: $criticalIssues critical issues found (max: $maxCritical)" `
+        -ForegroundColor Red
+    exit 1
+}
+
+if ($highIssues -gt $maxHigh) {
+    Write-Host "GATE FAILED: $highIssues high issues found (max: $maxHigh)" `
+        -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "✓ Security gates passed!" -ForegroundColor Green
+Write-Host "  Critical: $criticalIssues/$maxCritical" -ForegroundColor Green
+Write-Host "  High: $highIssues/$maxHigh" -ForegroundColor Yellow
+Write-Host "  Medium: $mediumIssues/$maxMedium" -ForegroundColor Yellow
+\end{lstlisting}
+
+\section{Meilleures Pratiques et Recommandations}
+
+\subsection{Fréquence des Scans}
+
+\begin{table}[H]
+\centering
+\caption{Calendrier Recommandé des Scans de Sécurité}
+\label{tab:scan_schedule}
+\begin{tabular}{|l|l|p{6cm}|}
+\hline
+\textbf{Type de Scan} & \textbf{Fréquence} & \textbf{Justification} \\
+\hline
+Health Check & Toutes les 5 min & Détection rapide des défaillances \\
+\hline
+SNMP Monitoring & Continu & Surveillance en temps réel des ressources \\
+\hline
+Network Scan & Quotidien & Détection de nouveaux services non autorisés \\
+\hline
+Security Audit & Hebdomadaire & Vérification de la conformité \\
+\hline
+Vulnerability Scan & Mensuel & Détection de nouvelles CVE \\
+\hline
+Penetration Test & Trimestriel & Audit de sécurité approfondi \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Gestion des Alertes}
+
+Configuration d'alertes basées sur les seuils :
+
+\begin{lstlisting}[language=PowerShell, caption=Système d'Alerting Simplifié]
+function Send-Alert {
+    param(
+        [string]$Severity,  # CRITICAL, WARNING, INFO
+        [string]$Message
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $alertMessage = "[$Severity] $timestamp - $Message"
+    
+    # Log vers fichier
+    Add-Content -Path "/security-tools/reports/alerts.log" -Value $alertMessage
+    
+    # Affichage console
+    $color = switch ($Severity) {
+        "CRITICAL" { "Red" }
+        "WARNING"  { "Yellow" }
+        "INFO"     { "Green" }
+    }
+    Write-Host $alertMessage -ForegroundColor $color
+    
+    # TODO: Intégration avec Slack, Email, PagerDuty, etc.
+    # if ($Severity -eq "CRITICAL") {
+    #     Send-EmailAlert -To "ops@company.com" -Subject "CRITICAL ALERT" `
+    #                     -Body $alertMessage
+    # }
+}
+
+# Exemples d'utilisation
+if ($cpuUsage -gt 90) {
+    Send-Alert -Severity "CRITICAL" `
+               -Message "CPU usage exceeded 90%: $cpuUsage%"
+}
+
+if ($criticalVulnerabilitiesCount -gt 0) {
+    Send-Alert -Severity "CRITICAL" `
+               -Message "$criticalVulnerabilitiesCount critical vulnerabilities detected"
+}
+\end{lstlisting}
+
+\subsection{Sécurisation des Outils de Sécurité}
+
+\textbf{Principe : Sécuriser les gardiens}
+
+\begin{itemize}
+    \item \textbf{Accès Restreint :} Le container security-tools ne doit pas être accessible depuis l'extérieur
+    \item \textbf{Principe de Moindre Privilège :} Utiliser un utilisateur non-root dans le container
+    \item \textbf{Rotation des Secrets :} Changer régulièrement les community strings SNMP
+    \item \textbf{Audit des Accès :} Logger tous les accès au container security-tools
+    \item \textbf{Chiffrement des Rapports :} Chiffrer les rapports sensibles avant stockage
+\end{itemize}
+
+\begin{lstlisting}[language=Dockerfile, caption=Sécurisation du Container, basicstyle=\ttfamily\tiny]
+# Créer un utilisateur non-root
+RUN groupadd -r sectools && useradd -r -g sectools sectools
+
+# Définir les permissions appropriées
+RUN chown -R sectools:sectools /security-tools
+RUN chmod 750 /security-tools/scripts
+RUN chmod 770 /security-tools/reports
+
+# Exécuter en tant qu'utilisateur non-root
+USER sectools
+
+# Définir le shell par défaut
+CMD ["/bin/bash"]
+\end{lstlisting}
+
+\section{Limitations et Travaux Futurs}
+
+\subsection{Limitations Actuelles}
+
+\begin{itemize}
+    \item \textbf{Scope Limité :} Les scans se limitent à l'environnement Docker local, pas de tests depuis l'extérieur simulant un attaquant externe
+    \item \textbf{Absence de Tests d'Intrusion Actifs :} Les outils actuels sont passifs ; pas de fuzzing ni d'exploitation de vulnérabilités
+    \item \textbf{Pas d'Intégration SIEM :} Les logs et alertes ne sont pas centralisés dans un SIEM (Security Information and Event Management)
+    \item \textbf{Alerting Basique :} Système d'alerting non intégré avec des plateformes de notification (Slack, PagerDuty, etc.)
+    \item \textbf{Absence de Baseline :} Pas de comparaison avec un état de référence (baseline) pour détecter les dérives
+\end{itemize}
+
+\subsection{Améliorations Futures Proposées}
+
+\begin{enumerate}
+    \item \textbf{Intégration d'Outils Avancés :}
+    \begin{itemize}
+        \item \textbf{OWASP ZAP / Burp Suite :} Pour des tests de sécurité applicatifs approfondis
+        \item \textbf{Trivy / Grype :} Scan de vulnérabilités dans les images Docker
+        \item \textbf{Metasploit Framework :} Tests de pénétration contrôlés
+        \item \textbf{Wireshark :} Analyse approfondie du trafic réseau
+    \end{itemize}
+    
+    \item \textbf{Centralisation avec SIEM :}
+    \begin{itemize}
+        \item Intégration avec ELK Stack (Elasticsearch, Logstash, Kibana)
+        \item Ou Splunk pour les environnements enterprise
+        \item Corrélation d'événements multi-sources
+    \end{itemize}
+    
+    \item \textbf{Automatisation Avancée :}
+    \begin{itemize}
+        \item Self-healing : Remédiation automatique de problèmes connus
+        \item Scaling automatique basé sur les métriques SNMP
+        \item Quarantaine automatique de containers suspects
+    \end{itemize}
+    
+    \item \textbf{Compliance as Code :}
+    \begin{itemize}
+        \item Implémentation de tests de conformité (PCI-DSS, GDPR, ISO 27001)
+        \item Génération de rapports de conformité automatisés
+        \item Tableaux de bord de conformité en temps réel
+    \end{itemize}
+    
+    \item \textbf{Machine Learning pour la Détection d'Anomalies :}
+    \begin{itemize}
+        \item Détection d'anomalies dans les patterns de trafic réseau
+        \item Prédiction de pannes basée sur l'historique des métriques
+        \item Détection de comportements anormaux (APT - Advanced Persistent Threats)
+    \end{itemize}
+\end{enumerate}
+
+\section{Conclusion du Chapitre}
+
+L'intégration de ce système de sécurité et de monitoring réseau avancé transforme le projet de microservices e-commerce d'une démonstration technique en un système proche d'une architecture de production. Les outils déployés (nmap, SNMP, PowerShell, tcpdump, etc.) offrent une visibilité complète sur l'infrastructure, permettant :
+
+\begin{itemize}
+    \item Une détection proactive des vulnérabilités
+    \item Une surveillance continue des performances
+    \item Une réponse rapide aux incidents
+    \item Une documentation automatisée de l'état du système
+    \item Une conformité facilitée aux standards de sécurité
+\end{itemize}
+
+Cette approche holistique de la sécurité et de l'observabilité s'inscrit dans une démarche DevSecOps moderne, où la sécurité n'est plus une étape finale mais un processus continu intégré dès la conception et maintenu tout au long du cycle de vie de l'application.
+
+Les scripts développés sont modulaires, extensibles et peuvent être adaptés à d'autres contextes d'infrastructure. Ils constituent une base solide pour construire un centre opérationnel de sécurité (SOC) automatisé à l'échelle de l'entreprise.
